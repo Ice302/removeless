@@ -1,0 +1,19 @@
+{
+  "name": "Removeless — background & noise remover",
+  "short_name": "Removeless",
+  "description": "Remove video backgrounds and background noise on device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#C3C7CC",
+  "theme_color": "#C3C7CC",
+  "categories": ["photo", "video", "productivity"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "file_handlers": [
+    { "action": "./", "accept": { "video/*": [".mp4", ".mov", ".webm", ".m4v"], "audio/*": [".wav", ".mp3", ".m4a"] } }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "name": "removeless",
+  "productName": "Removeless",
+  "version": "0.13.0",
+  "description": "Desktop studio for AI video background removal and voice isolation.",
+  "author": "Removeless",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
+    "build": "vite build",
+    "build:web": "vite build --mode web",
+    "preview": "vite preview",
+    "start": "vite build && electron .",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs",
+    "dist:mac": "vite build && node scripts/fetch-ffmpeg.mjs darwin-arm64 darwin-x64 && electron-builder --mac --arm64 --x64",
+    "dist:win": "vite build && node scripts/fetch-ffmpeg.mjs win32-x64 && electron-builder --win --x64",
+    "dist:linux": "vite build && node scripts/fetch-ffmpeg.mjs linux-x64 && electron-builder --linux --x64",
+    "test:audio": "node tests/audio-quality.mjs",
+    "test:matte": "node tests/matte-quality.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@shiguredo/rnnoise-wasm": "^2025.1.5",
+    "electron": "^44.9.3",
+    "electron-builder": "^26.15.3",
+    "ffmpeg-static": "^5.3.0",
+    "mediabunny": "^1.62.0",
+    "onnxruntime-web": "^1.30.0",
+    "vite": "^8.3.4"
+  },
+  "allowScripts": {
+    "electron@44.9.3": true,
+    "ffmpeg-static@5.3.0": true
+  },
+  "build": {
+    "appId": "com.removeless.studio",
+    "productName": "Removeless",
+    "copyright": "© 2026 Removeless",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/onnxruntime-node/script/**"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp4",
+          "mov",
+          "m4v",
+          "webm",
+          "mkv"
+        ],
+        "name": "Video",
+        "role": "Viewer"
+      },
+      {
+        "ext": [
+          "wav",
+          "mp3",
+          "m4a",
+          "flac"
+        ],
+        "name": "Audio",
+        "role": "Viewer"
+      },
+      {
+        "ext": "removeless",
+        "name": "Removeless Project",
+        "role": "Editor"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Removeless uses the camera to record clips for background removal.",
+        "NSMicrophoneUsageDescription": "Removeless uses the microphone to record audio for voice isolation."
+      },
+      "files": [
+        "dist/**",
+        "electron/**",
+        "package.json",
+        "!**/*.map",
+        "!node_modules/onnxruntime-node/script/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/{linux,win32}/**"
+      ],
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/darwin-${arch}",
+          "to": "ffmpeg"
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Removeless ${version}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "files": [
+        "dist/**",
+        "electron/**",
+        "package.json",
+        "!**/*.map",
+        "!node_modules/onnxruntime-node/script/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/{linux,darwin}/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"
+      ],
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/win32-${arch}",
+          "to": "ffmpeg"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "artifactName": "Removeless-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "files": [
+        "dist/**",
+        "electron/**",
+        "package.json",
+        "!**/*.map",
+        "!node_modules/onnxruntime-node/script/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/{darwin,win32}/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/**"
+      ],
+      "extraResources": [
+        {
+          "from": "vendor/ffmpeg/linux-${arch}",
+          "to": "ffmpeg"
+        }
+      ]
+    },
+    "asarUnpack": [
+      "dist/models/**",
+      "node_modules/onnxruntime-node/**"
+    ],
+    "toolsets": {
+      "nsis": "1.2.1"
+    }
+  },
+  "dependencies": {
+    "onnxruntime-node": "^1.30.0"
+  }
+}

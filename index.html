@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' app: blob: data:; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: app:; media-src 'self' blob: app: data: mediastream:; connect-src 'self' app: blob: data:; font-src 'self' data:" />
+  <meta name="theme-color" content="#C3C7CC" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#16181C" media="(prefers-color-scheme: dark)" />
+  <meta name="description" content="Remove video backgrounds and background noise — on device." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon-512.png" />
+  <title>Removeless</title>
+</head>
+<body>
+  <div class="floor" aria-hidden="true"><div class="floor-plane"></div></div>
+
+  <!-- ───────────── Top bar ───────────── -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-left">
+      <span id="dateDay">—</span>
+      <span class="rule" aria-hidden="true"></span>
+      <span id="dateFull">—</span>
+      <span class="status-pill" id="statusPill" title="Processing backend">
+        <span id="statusText">Starting engines…</span>
+        <span class="status-dot" id="statusDot"></span>
+      </span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-acid btn-sm no-drag" id="btnExportTop" title="Export (⌘E)">Export <kbd>⌘E</kbd></button>
+      <button class="theme-btn no-drag" id="btnTheme" aria-label="Change theme">◐</button>
+      <span id="dateYear">2026</span>
+      <div class="win-controls no-drag" id="winControls" hidden>
+        <button id="winMin" aria-label="Minimise"><svg width="14" height="14" viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.3"><line x1="1" y1="8" x2="15" y2="8"/></svg></button>
+        <button id="winMax" aria-label="Maximise"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1" y="1" width="10" height="10"/></svg></button>
+        <button id="winClose" aria-label="Close"><svg width="12" height="12" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.3"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <input type="file" id="fileInput" accept="video/*,audio/*,.mov,.mkv,.mxf,.removeless" multiple hidden />
+  <input type="file" id="backdropInput" accept="image/*" hidden />
+
+  <main class="workspace">
+    <!-- ───────────── Left column ───────────── -->
+    <section class="col col-left" aria-label="Views, tools and media">
+      <div class="group">
+        <div class="label">Views</div>
+        <div class="forms" role="radiogroup" aria-label="Viewer mode">
+          <button class="form-btn is-active" data-view="composite" role="radio" aria-checked="true" title="Composite (1)" aria-label="Composite view">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+          </button>
+          <button class="form-btn" data-view="alpha" role="radio" aria-checked="false" title="Alpha matte (2)" aria-label="Alpha matte view">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9" stroke-dasharray="2 2"/></svg>
+          </button>
+          <button class="form-btn" data-view="overlay" role="radio" aria-checked="false" title="Overlay review (3) — hold Alt for poster contour" aria-label="Overlay review view">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><polygon points="12 3 21 19 3 19"/><line x1="12" y1="3" x2="12" y2="19" stroke-dasharray="2 2"/></svg>
+          </button>
+          <button class="form-btn" data-view="audio" role="radio" aria-checked="false" title="Audio (4)" aria-label="Audio view">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg>
+          </button>
+          <button class="form-btn" data-view="split" role="radio" aria-checked="false" title="Split before / after (5)" aria-label="Split view">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="19" x2="19" y2="5" stroke-dasharray="2 3"/><circle cx="6" cy="18" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18" cy="6" r="1.5" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="label">Tools</div>
+        <div class="tools" role="tablist" aria-label="Tools" id="toolsList">
+          <button class="tool-row is-active" role="tab" data-tool="roto" aria-selected="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+            <span>Roto Matte</span><kbd>R</kbd>
+          </button>
+          <button class="tool-row" role="tab" data-tool="edge" aria-selected="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12c0 4.97 4.03 9 9 9s9-4.03 9-9"/><path d="M12 3l4 4-4 4-4-4 4-4z"/></svg>
+            <span>Refine Edge &amp; Spill</span><kbd>E</kbd>
+          </button>
+          <button class="tool-row" role="tab" data-tool="voice" aria-selected="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 19 7 19 17 12 22 5 17 5 7 12 2"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>Voice Isolate</span><kbd>V</kbd>
+          </button>
+          <button class="tool-row" role="tab" data-tool="strokes" aria-selected="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16"/><circle cx="9" cy="9" r="1.5" fill="currentColor"/><circle cx="15" cy="15" r="1.5" fill="currentColor"/><line x1="9" y1="15" x2="15" y2="9"/></svg>
+            <span>FG / BG Strokes</span><kbd>B</kbd>
+          </button>
+          <button class="tool-row" role="tab" data-tool="backdrop" aria-selected="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+            <span>Backdrop</span><kbd>D</kbd>
+          </button>
+          <button class="tool-row" role="tab" data-tool="export" aria-selected="false">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16v4h16v-4"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="4" x2="12" y2="16"/></svg>
+            <span>Export</span><kbd>X</kbd>
+          </button>
+        </div>
+      </div>
+
+      <div class="group reel">
+        <div class="reel-head">
+          <span class="mono label-strong">Media Bin</span>
+          <button class="link mono" id="btnCollapseReel" aria-expanded="true">Hide</button>
+        </div>
+        <div class="reel-list" id="reelList" aria-live="polite"></div>
+        <div class="reel-actions" id="reelActions">
+          <button class="postit postit-dashed" id="btnImport"><b>+ Import media</b><span class="tag">⌘O</span></button>
+          <button class="postit" id="btnCamera"><b class="blue" id="cameraLabel">● Record camera</b><span class="tag tag-blue">Live</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────── Centre column ───────────── -->
+    <section class="col col-center" aria-label="Viewer">
+      <div class="viewer-head">
+        <div class="mono viewer-title">
+          <span class="acid-strip" id="engineBadge">ROTO NEURAL + VOICE ISOLATE</span>
+          <span id="clipTitle" class="clip-title">No media</span>
+        </div>
+        <div class="viewer-toggles mono">
+          <button class="chip" id="btnGuides" aria-pressed="false" title="Safe-area guides (G)">Guides</button>
+          <button class="chip chip-strong" id="btnRaw" title="Hold to compare with the untouched source (\)">Raw [hold]</button>
+        </div>
+      </div>
+
+      <div class="viewport checker" id="viewport" tabindex="0" aria-label="Preview. Paint strokes with the brush tool.">
+        <canvas id="view" width="960" height="540"></canvas>
+        <canvas id="overlay" width="960" height="540" aria-hidden="true"></canvas>
+
+        <div class="empty" id="emptyState">
+          <svg class="empty-cube" viewBox="0 0 240 240" aria-hidden="true">
+            <line x1="120" y1="20" x2="120" y2="118" class="faint"/><line x1="120" y1="118" x2="35" y2="167" class="faint"/><line x1="120" y1="118" x2="205" y2="167" class="faint"/>
+            <polygon points="120,20 205,69 205,167 120,216 35,167 35,69"/>
+            <line x1="35" y1="69" x2="120" y2="118"/><line x1="205" y1="69" x2="120" y2="118"/><line x1="120" y1="118" x2="120" y2="216"/>
+          </svg>
+          <div class="empty-copy">
+            <div class="empty-title">Drop a video or audio file</div>
+            <div class="mono empty-sub">MP4 · MOV · WebM · ProRes · WAV · MP3 — processed on this device, nothing is uploaded.</div>
+            <div class="empty-actions">
+              <button class="btn btn-ink" id="btnEmptyImport">Import media</button>
+              <button class="btn" id="btnEmptyCamera">Use camera</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud hud-tl mono" aria-live="off">
+          <div class="hud-ink"><span class="ping" id="hudPing"></span><span id="hudEngine">ENGINE IDLE</span></div>
+          <div class="hud-paper" id="hudHint">Paint: +FG keep / −BG cut · [ ] brush size</div>
+        </div>
+        <div class="hud hud-tr mono">
+          <div class="acid-strip" id="hudNoise">NOISE —</div>
+          <div class="hud-ink small" id="hudVoice">VOICE —</div>
+        </div>
+        <div class="busy" id="busy" hidden>
+          <div class="busy-card mono">
+            <div id="busyText">Working…</div>
+            <div class="bar"><div class="bar-fill" id="busyBar"></div></div>
+          </div>
+        </div>
+        <div class="strip">
+          <div class="strip-head mono">
+            <span>SPECTRUM — <i class="key-y">YELLOW</i> ISOLATED VOICE // <i class="key-b">BLUE</i> SOURCE NOISE FLOOR</span>
+            <span id="timecode">00:00:00:00 / 00:00:00:00</span>
+          </div>
+          <canvas id="spectrum" width="600" height="32"></canvas>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline" aria-label="Timeline. I and O set in and out points.">
+        <canvas id="timelineCanvas" width="960" height="44"></canvas>
+      </div>
+
+      <div class="stage-shadow" aria-hidden="true"></div>
+
+      <div class="arc-wrap">
+        <svg id="arc" viewBox="0 0 420 102" class="arc" role="slider" tabindex="0" aria-label="Isolation strength" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60">
+          <path d="M 30 16 A 185 66 0 0 0 390 16" fill="none" class="arc-track"/>
+          <path id="arcThumb" d="M 175 80.5 A 185 66 0 0 0 245 80.5" fill="none" class="arc-thumb"/>
+          <g transform="translate(86, 82)" class="gizmo">
+            <line x1="0" y1="0" x2="0" y2="-15"/><text x="-3" y="-18">Y</text>
+            <line x1="0" y1="0" x2="-13" y2="7"/><text x="-21" y="11">X</text>
+            <line x1="0" y1="0" x2="13" y2="7" class="bold"/><text x="16" y="11" class="bold">Z</text>
+          </g>
+        </svg>
+        <div class="arc-readout">
+          <div class="label">Isolation Strength</div>
+          <div class="arc-value" id="arcValue">60°</div>
+        </div>
+      </div>
+
+      <div class="toolbar mono">
+        <div class="tb-group">
+          <button class="btn btn-ink btn-sm" id="btnPlay" title="Play / pause (Space)">Play</button>
+          <button class="btn btn-sm" id="btnStepBack" title="Previous frame (←)" aria-label="Previous frame">◀︎</button>
+          <button class="btn btn-sm" id="btnStepFwd" title="Next frame (→)" aria-label="Next frame">▶︎</button>
+          <button class="btn btn-sm" id="btnMute" title="Monitor audio (M)" aria-label="Mute monitoring">🔊</button>
+        </div>
+        <div class="tb-group tb-brush" role="group" aria-label="Roto brush">
+          <button class="seg is-on" id="btnBrushFG" title="+FG keep brush (F)">+FG</button>
+          <button class="seg" id="btnBrushBG" title="−BG cut brush (C, or Alt-drag)">−BG</button>
+          <button class="seg seg-ghost" id="btnUndo" title="Undo (⌘Z)">Undo</button>
+          <label class="rad"><span>RAD</span><input id="brushRadius" type="range" min="4" max="80" value="22" aria-label="Brush radius" /></label>
+        </div>
+        <div class="tb-group">
+          <button class="btn btn-acid btn-sm" id="btnExportVideo" title="Export video (⌘E)">Export ▸</button>
+          <button class="btn btn-blue btn-sm" id="btnExportAudio" title="Export isolated audio (⇧⌘E)">Audio ▸</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────── Right column (inspector) ───────────── -->
+    <section class="col col-right" aria-label="Inspector">
+      <div class="group">
+        <div class="inspector-head">
+          <span class="label">Engine</span>
+          <span class="mono tag-ink" id="engineTag">ROTO NEURAL</span>
+        </div>
+        <div class="matrix" role="radiogroup" aria-label="Matte engine">
+          <button class="matrix-cell is-active" data-engine="rvm" role="radio" aria-checked="true" title="Temporal neural matting — best for people in video">
+            <span class="cell-icon"><span class="glow"></span></span><span class="cell-name">Roto Neural</span>
+          </button>
+          <button class="matrix-cell" data-engine="modnet" role="radio" aria-checked="false" title="Per-frame portrait matting — license-friendly alternative">
+            <span class="cell-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="7" cy="2" r="1"/><circle cx="12" cy="2" r="1"/><circle cx="2" cy="7" r="1"/><circle cx="7" cy="7" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="2" cy="12" r="1"/><circle cx="7" cy="12" r="1"/><circle cx="12" cy="12" r="1"/></svg></span><span class="cell-name">Portrait</span>
+          </button>
+          <button class="matrix-cell" data-engine="chroma" role="radio" aria-checked="false" title="Colour-difference keyer for green / blue screen">
+            <span class="cell-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><line x1="12" y1="2" x2="3" y2="11"/><polyline points="8 11 3 11 3 6"/></svg></span><span class="cell-name">Chroma Key</span>
+          </button>
+          <button class="matrix-cell" data-engine="off" role="radio" aria-checked="false" title="Audio only — leave the picture untouched">
+            <span class="cell-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="4.5"/></svg></span><span class="cell-name">Audio Only</span>
+          </button>
+        </div>
+        <div class="preset-row mono">
+          <select id="presetSelect" aria-label="Preset"></select>
+          <button class="chip" id="btnSavePreset" title="Save current settings as a preset">Save</button>
+          <button class="chip" id="btnReset" title="Reset all settings">Reset</button>
+        </div>
+      </div>
+
+      <div class="panels" id="panels">
+        <!-- Roto -->
+        <div class="panel is-active" data-panel="roto">
+          <div class="panel-head"><span class="mono label-strong">Roto Matte</span><span class="mono accent-blue" id="qualityLabel">BALANCED</span></div>
+          <div class="seg-row mono" role="radiogroup" aria-label="Quality">
+            <button class="seg" data-quality="draft">Draft</button>
+            <button class="seg is-on" data-quality="balanced">Balanced</button>
+            <button class="seg" data-quality="high">High</button>
+          </div>
+          <div class="slider" data-key="threshold" data-label="Matte Threshold" data-min="0" data-max="100" data-fmt="pct"></div>
+          <div class="slider" data-key="contrast" data-label="Matte Contrast" data-min="0" data-max="100" data-fmt="pct"></div>
+          <div class="slider" data-key="shiftEdge" data-label="Shift Edge (Choke ↔ Spread)" data-min="-100" data-max="100" data-fmt="signed"></div>
+          <div class="slider" data-key="snap" data-label="Edge Snap" data-min="0" data-max="100" data-fmt="pct"></div>
+          <div class="chroma-only" hidden>
+            <div class="key-row mono">
+              <span>Key colour</span>
+              <span class="swatch" id="keySwatch"></span>
+              <button class="chip" id="btnPickKey" title="Click the viewer to sample the screen colour">Pick</button>
+              <button class="chip" id="btnAutoKey">Auto</button>
+            </div>
+            <div class="slider" data-key="keyBalance" data-label="Screen Balance" data-min="0" data-max="100" data-fmt="pct"></div>
+          </div>
+        </div>
+        <!-- Edge -->
+        <div class="panel" data-panel="edge">
+          <div class="panel-head"><span class="mono label-strong">Refine Edge</span><span class="mono accent-blue">GUIDED · TEMPORAL</span></div>
+          <div class="slider" data-key="feather" data-label="Feather" data-min="0" data-max="100" data-fmt="feather"></div>
+          <div class="slider" data-key="chatter" data-label="Reduce Chatter" data-min="0" data-max="100" data-fmt="pct"></div>
+          <div class="slider" data-key="decontam" data-label="Decontaminate Edge Colours" data-min="0" data-max="100" data-fmt="pct"></div>
+          <div class="slider" data-key="despill" data-label="Despill" data-min="0" data-max="100" data-fmt="pct"></div>
+          <p class="hint">Edge Snap pulls the matte onto real image edges. Reduce Chatter averages static edges over time but follows motion instantly.</p>
+        </div>
+        <!-- Voice -->
+        <div class="panel" data-panel="voice">
+          <div class="panel-head"><span class="mono acid-strip">Voice Isolate</span><span class="mono accent-blue" id="humLabel">HUM —</span></div>
+          <div class="slider" data-key="reductionDb" data-label="Noise Reduction" data-min="0" data-max="60" data-fmt="db" data-audio></div>
+          <div class="slider" data-key="cleanup" data-label="Residual Cleanup" data-min="0" data-max="100" data-fmt="pct" data-audio></div>
+          <div class="slider" data-key="gate" data-label="Voice Gate" data-min="0" data-max="100" data-fmt="pct" data-audio></div>
+          <div class="slider" data-key="presence" data-label="Voice Presence" data-min="0" data-max="100" data-fmt="pct" data-audio></div>
+          <div class="slider" data-key="deEsser" data-label="De-Esser" data-min="0" data-max="100" data-fmt="pct" data-audio></div>
+          <div class="slider" data-key="highpassHz" data-label="Low Cut" data-min="20" data-max="200" data-fmt="hz" data-audio></div>
+          <div class="slider" data-key="mix" data-label="Dry / Wet" data-min="0" data-max="100" data-fmt="pct" data-audio></div>
+          <div class="select-row mono">
+            <label>Hum <select data-audio-select="hum"><option value="auto">Auto</option><option value="50">50 Hz</option><option value="60">60 Hz</option><option value="off">Off</option></select></label>
+            <label>Loudness <select data-audio-select="loudness"><option value="-14">−14 LUFS</option><option value="-16">−16 LUFS</option><option value="-19">−19 LUFS</option><option value="-23">−23 LUFS</option><option value="off">Off</option></select></label>
+          </div>
+          <div class="stats mono" id="audioStats">No audio loaded.</div>
+        </div>
+        <!-- Strokes -->
+        <div class="panel" data-panel="strokes">
+          <div class="panel-head"><span class="mono label-strong">FG / BG Strokes</span><span class="mono accent-blue" id="strokeCount">0 STROKES</span></div>
+          <p class="hint">Paint on the viewer. <b>+FG</b> keeps, <b>−BG</b> cuts (hold Alt to cut). Strokes snap to edges and follow the subject.</p>
+          <div class="slider" data-key="strokeSpanUi" data-label="Stroke Lifetime" data-min="0" data-max="100" data-fmt="span"></div>
+          <label class="check mono"><input type="checkbox" id="trackStrokes" checked /> Follow subject motion</label>
+          <div class="row-buttons mono">
+            <button class="chip" id="btnClearFrameStrokes">Clear near playhead</button>
+            <button class="chip" id="btnClearStrokes">Clear all</button>
+          </div>
+        </div>
+        <!-- Backdrop -->
+        <div class="panel" data-panel="backdrop">
+          <div class="panel-head"><span class="mono label-strong">Backdrop</span><span class="mono accent-blue" id="backdropLabel">TRANSPARENT</span></div>
+          <div class="pills mono" role="radiogroup" aria-label="Backdrop">
+            <button class="pill is-on" data-backdrop="transparent">Alpha</button>
+            <button class="pill" data-backdrop="color" data-color="#C0C4CA">Studio</button>
+            <button class="pill pill-acid" data-backdrop="color" data-color="#E3F732">Acid</button>
+            <button class="pill pill-blue" data-backdrop="color" data-color="#0038FF">Blue</button>
+            <button class="pill" data-backdrop="blur">Blur</button>
+            <button class="pill" data-backdrop="image">Image…</button>
+          </div>
+          <label class="color-row mono">Custom colour <input type="color" id="backdropColor" value="#C0C4CA" /></label>
+          <div class="slider" data-key="backdropBlur" data-label="Background Blur" data-min="0" data-max="100" data-fmt="pct"></div>
+          <button class="chip mono" id="btnPoster" title="Stylised poster look: ink silhouette with stepped blue contour">Poster contour look</button>
+        </div>
+        <!-- Export -->
+        <div class="panel" data-panel="export">
+          <div class="panel-head"><span class="mono label-strong">Export</span><span class="mono accent-blue" id="exportRangeLabel">FULL CLIP</span></div>
+          <div class="formats mono" id="formatList" role="radiogroup" aria-label="Video format"></div>
+          <div class="select-row mono">
+            <label>Size <select id="exportScale"><option value="1">100%</option><option value="0.75">75%</option><option value="0.5">50%</option></select></label>
+            <label>Audio <select id="exportAudioFmt"><option value="wav">WAV 24-bit</option><option value="flac">FLAC</option><option value="m4a">AAC .m4a</option></select></label>
+          </div>
+          <div class="row-buttons mono">
+            <button class="btn btn-acid btn-sm" id="btnExportPanel">Export clip</button>
+            <button class="btn btn-sm" id="btnExportAll">Export all in bin</button>
+          </div>
+          <p class="hint">Press <kbd>I</kbd> / <kbd>O</kbd> on the timeline to export a range.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ───────────── Footer ───────────── -->
+  <footer class="footer">
+    <div class="footer-left">
+      <div class="emblem" aria-hidden="true"><div>END<br />IS<br />UI</div><span class="emblem-dot"></span></div>
+      <div class="telemetry mono">
+        <div class="chips">
+          <span class="acid-strip" id="telFps">— FPS</span>
+          <span class="chip-flat" id="telBackend">Engine: —</span>
+          <span class="chip-flat" id="telAudio">Audio: 48 kHz</span>
+          <span class="chip-ink" id="telFormat">Format: —</span>
+        </div>
+        <div class="shortcut-line">
+          <b>Space</b> play · <b>←/→</b> frame · <b>I/O</b> range · <b>⌘Z</b> undo · <b>⌘E</b> export · <button class="link" id="btnShortcuts">all shortcuts <b>?</b></button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-right">
+      <button class="btn btn-ink btn-sm mono" id="btnAbout">Licenses</button>
+      <div class="index" id="versionIndex">013</div>
+    </div>
+  </footer>
+
+  <!-- ───────────── Dialogs ───────────── -->
+  <dialog class="modal mono" id="exportDialog">
+    <div class="modal-head"><span class="acid-strip" id="exportTitle">EXPORTING</span></div>
+    <div id="exportStage" class="modal-body">Preparing…</div>
+    <div class="bar big"><div class="bar-fill" id="exportBar"></div></div>
+    <div class="modal-foot">
+      <span id="exportEta">—</span>
+      <div class="row-buttons">
+        <button class="btn btn-sm" id="btnExportReveal" hidden>Show in folder</button>
+        <button class="btn btn-ink btn-sm" id="btnExportCancel">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal mono" id="shortcutsDialog">
+    <div class="modal-head"><span class="acid-strip">KEYBOARD SHORTCUTS</span><button class="chip" data-close>Close</button></div>
+    <div class="shortcut-grid" id="shortcutGrid"></div>
+  </dialog>
+
+  <dialog class="modal mono" id="aboutDialog">
+    <div class="modal-head"><span class="acid-strip">REMOVELESS · LICENSES</span><button class="chip" data-close>Close</button></div>
+    <div class="modal-body about">
+      <p>Everything runs on this device. No media leaves your computer.</p>
+      <ul>
+        <li><b>Robust Video Matting</b> (Lin et al.) — GPL-3.0 model weights, “Roto Neural” engine.</li>
+        <li><b>MODNet</b> (Ke et al.) — Apache-2.0, “Portrait” engine.</li>
+        <li><b>RNNoise</b> (Valin / Xiph) via @shiguredo/rnnoise-wasm — BSD-3 / Apache-2.0.</li>
+        <li><b>ONNX Runtime Web</b> — MIT. <b>Mediabunny</b> — MPL-2.0.</li>
+        <li><b>FFmpeg</b> static builds — GPL-3.0 (desktop only).</li>
+        <li>Inter &amp; IBM Plex Mono — SIL Open Font License.</li>
+      </ul>
+      <p id="aboutVersion"></p>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
